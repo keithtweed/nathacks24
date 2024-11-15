@@ -1,0 +1,7 @@
+name: nathacks24
+dependencies:
+  - python=3.12.3
+  - streamlit
+  - pip
+  - pip:
+    - brainflow

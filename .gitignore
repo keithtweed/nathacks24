@@ -135,3 +135,6 @@ nathacks_env/
 
 # vscode settings
 .vscode/
+
+# Conda environment
+.conda/
