@@ -13,19 +13,23 @@ def main():
     params.mac_address = "00:55:DA:B7:F7:DD"
     board = BoardShim(BoardIds.MUSE_2_BLED_BOARD.value, params)
     board.prepare_session()
-    board.start_stream()
-    BoardShim.log_message(LogLevels.LEVEL_INFO.value, "start sleeping in the main thread")
-    time.sleep(10)
-    data = board.get_board_data()
-    board.stop_stream()
+    for i in range(3):
+        board.start_stream()
+        BoardShim.log_message(LogLevels.LEVEL_INFO.value, "start sleeping in the main thread")
+        time.sleep(600)
+        data = board.get_board_data()
+        board.stop_stream()
+
+        # demo for data serialization using brainflow API, we recommend to use it instead pandas.to_csv()
+        DataFilter.write_file(data, "data.csv", "a")  # use 'a' for append mode
+
     board.release_session()
 
     # demo how to convert it to pandas DF and plot data
     eeg_channels = BoardShim.get_eeg_channels(BoardIds.MUSE_2_BLED_BOARD.value)
     print(eeg_channels)
 
-    # demo for data serialization using brainflow API, we recommend to use it instead pandas.to_csv()
-    DataFilter.write_file(data, "data.csv", "w")  # use 'a' for append mode
+    
 
 
 if __name__ == "__main__":

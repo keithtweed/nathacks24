@@ -2,12 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from brainflow.data_filter import (
     DataFilter,
-    WaveletTypes,
-    WaveletDenoisingTypes,
-    WaveletExtensionTypes,
-    ThresholdTypes,
-    NoiseEstimationLevelTypes,
-    WindowOperations,
+    FilterTypes,
+    WindowOperations
 )
 
 with open("data.csv") as f:
@@ -16,17 +12,22 @@ with open("data.csv") as f:
     plt.figure("raw")
     plt.plot(channel2_data)
 
+    sampling_rate = 256
+    lowcut = 8
+    highcut = 12
+    order = 4
+
     channel2_data = np.array(channel2_data)
-    DataFilter.perform_wavelet_denoising(
+    DataFilter.perform_bandpass(
         channel2_data,
-        WaveletTypes.BIOR3_9,
-        3,
-        WaveletDenoisingTypes.SURESHRINK,
-        ThresholdTypes.HARD,
-        WaveletExtensionTypes.SYMMETRIC,
-        NoiseEstimationLevelTypes.FIRST_LEVEL,
+        sampling_rate,
+        lowcut,
+        highcut,
+        order,
+        FilterTypes.BUTTERWORTH.value,
+        0.5
     )
-    fft_data = DataFilter.perform_fft(channel2_data, WindowOperations.NO_WINDOW.value)
+    fft_data = DataFilter.perform_fft(channel2_data, WindowOperations.HAMMING.value)
     plt.figure("fft")
     plt.plot(fft_data)
     plt.show()
