@@ -1,9 +1,9 @@
 import argparse
 import logging
-
 import pyqtgraph as pg
+import numpy as np
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
-from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations
+from brainflow.data_filter import DataFilter, FilterTypes, DetrendOperations, WindowOperations
 from pyqtgraph.Qt import QtGui, QtCore
 
 
@@ -11,11 +11,13 @@ class Graph:
     def __init__(self, board_shim):
         self.board_id = board_shim.get_board_id()
         self.board_shim = board_shim
-        self.exg_channels = BoardShim.get_exg_channels(self.board_id)
+        self.eeg_channels = BoardShim.get_eeg_channels(self.board_id)
         self.sampling_rate = BoardShim.get_sampling_rate(self.board_id)
         self.update_speed_ms = 50
-        self.window_size = 4
+        self.window_size = 15
         self.num_points = self.window_size * self.sampling_rate
+        self.nfft = DataFilter.get_nearest_power_of_two(self.sampling_rate)
+        self.graph_data = np.zeros(15)
 
         self.app = QtGui.QApplication([])
         self.win = pg.GraphicsWindow(title="BrainFlow Plot", size=(800, 600))
@@ -30,33 +32,39 @@ class Graph:
     def _init_timeseries(self):
         self.plots = list()
         self.curves = list()
-        for i in range(len(self.exg_channels)):
-            p = self.win.addPlot(row=i, col=0)
-            p.showAxis("left", False)
-            p.setMenuEnabled("left", False)
-            p.showAxis("bottom", False)
-            p.setMenuEnabled("bottom", False)
-            if i == 0:
-                p.setTitle("TimeSeries Plot")
-            self.plots.append(p)
-            curve = p.plot()
-            self.curves.append(curve)
+        # for i in range(len(self.exg_channels)):
+        p = self.win.addPlot(row=0, col=0)
+        p.showAxis("left", False)
+        p.setMenuEnabled("left", False)
+        p.showAxis("bottom", False)
+        p.setMenuEnabled("bottom", False)
+        p.setYRange(0, 5000)
+        # if i == 0:
+        #     p.setTitle("TimeSeries Plot")
+        self.plots.append(p)
+        curve = p.plot()
+        self.curves.append(curve)
 
     def update(self):
         data = self.board_shim.get_current_board_data(self.num_points)
-        for count, channel in enumerate(self.exg_channels):
-            # plot timeseries
-            DataFilter.detrend(data[channel], DetrendOperations.CONSTANT.value)
-            DataFilter.perform_bandpass(
-                data[channel], self.sampling_rate, 3.0, 45.0, 2, FilterTypes.BUTTERWORTH_ZERO_PHASE, 0
-            )
-            DataFilter.perform_bandstop(
-                data[channel], self.sampling_rate, 48.0, 52.0, 2, FilterTypes.BUTTERWORTH_ZERO_PHASE, 0
-            )
-            DataFilter.perform_bandstop(
-                data[channel], self.sampling_rate, 58.0, 62.0, 2, FilterTypes.BUTTERWORTH_ZERO_PHASE, 0
-            )
-            self.curves[count].setData(data[channel].tolist())
+
+        DataFilter.detrend(data[2], DetrendOperations.CONSTANT.value)
+        DataFilter.perform_bandpass(data[2], self.sampling_rate, 8.0, 35.0, 2, FilterTypes.BUTTERWORTH.value, 0)
+        nfft = min(self.nfft, DataFilter.get_nearest_power_of_two(len(data[2])))
+        psd = DataFilter.get_psd_welch(
+            data[2],
+            nfft=nfft,
+            overlap=nfft // 2,
+            sampling_rate=self.sampling_rate,
+            window=WindowOperations.HANNING.value,
+        )
+        alpha = DataFilter.get_band_power(psd, 8.0, 12.0)
+        beta = DataFilter.get_band_power(psd, 12.0, 35.0)
+
+        self.graph_data = np.roll(self.graph_data, -1)
+        self.graph_data[-1] = alpha / beta
+
+        self.curves[0].setData(self.graph_data)
 
         self.app.processEvents()
 
@@ -85,7 +93,7 @@ def main():
         type=int,
         help="board id, check docs to get a list of supported boards",
         required=False,
-        default=BoardIds.MUSE_2_BLED_BOARD.value,
+        default=BoardIds.SYNTHETIC_BOARD.value,
     )
     parser.add_argument("--file", type=str, help="file", required=False, default="")
     parser.add_argument(
