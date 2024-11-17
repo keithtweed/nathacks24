@@ -13,15 +13,15 @@ def main():
     params.mac_address = "00:55:DA:B7:F7:DD"
     board = BoardShim(BoardIds.MUSE_2_BLED_BOARD.value, params)
     board.prepare_session()
-    for i in range(3):
+    for i in range(100):
         board.start_stream()
         BoardShim.log_message(LogLevels.LEVEL_INFO.value, "start sleeping in the main thread")
-        time.sleep(600)
+        time.sleep(6)
         data = board.get_board_data()
         board.stop_stream()
 
         # demo for data serialization using brainflow API, we recommend to use it instead pandas.to_csv()
-        DataFilter.write_file(data, "data.csv", "a")  # use 'a' for append mode
+        DataFilter.write_file(data, "ishaan1.csv", "a")  # use 'a' for append mode
 
     board.release_session()
 
